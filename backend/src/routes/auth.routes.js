@@ -8,6 +8,7 @@ const {
   merchantRegistrationSchema,
   merchantLoginSchema,
   merchantUpdateSchema,
+  updateLocationSchema,
 } = require('../validators/merchant.validator');
 
 router.post(
@@ -27,6 +28,14 @@ router.patch(
   requireMerchant,
   validate(merchantUpdateSchema),
   authController.updateProfile
+);
+
+router.patch(
+  '/location',
+  verifyToken,
+  requireMerchant,
+  validate(updateLocationSchema),
+  authController.updateLocation
 );
 
 router.get('/verify-email', authController.verifyEmail);
