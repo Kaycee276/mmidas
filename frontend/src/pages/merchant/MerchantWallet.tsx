@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, RefreshCw } from 'lucide-react';
+import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, RefreshCw, Plus } from 'lucide-react';
 import { getMerchantWalletInfo } from '../../api/merchant-wallet';
 import type { MerchantWalletInfo, MerchantWalletTransaction } from '../../types';
 import Card from '../../components/ui/Card';
@@ -9,6 +9,7 @@ import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 
 const txnTypeLabel: Record<string, string> = {
+  deposit: 'Wallet Deposit',
   investment_credit: 'Investment Received',
   withdrawal: 'Withdrawal to Bank',
   dividend_debit: 'Annual Dividend Paid',
@@ -21,7 +22,7 @@ const txnBadgeVariant = (status: string): 'success' | 'warning' | 'error' | 'def
   return 'default';
 };
 
-const isCredit = (type: string) => type === 'investment_credit';
+const isCredit = (type: string) => type === 'investment_credit' || type === 'deposit';
 
 const MerchantWallet = () => {
   const [info, setInfo] = useState<MerchantWalletInfo | null>(null);
@@ -75,6 +76,11 @@ const MerchantWallet = () => {
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Syncing...' : 'Sync'}
           </Button>
+          <Link to="/merchant/wallet/deposit">
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Deposit Funds
+            </Button>
+          </Link>
           <Link to="/merchant/wallet/withdraw">
             <Button size="sm" className="gap-1.5">
               <ArrowUpRight className="h-3.5 w-3.5" />

@@ -422,7 +422,8 @@ export interface WalletInfo {
 }
 
 // Merchant Wallet types
-export type MerchantWalletTransactionType = 'investment_credit' | 'withdrawal' | 'dividend_debit';
+export type MerchantWalletTransactionType =
+  'deposit' | 'investment_credit' | 'withdrawal' | 'dividend_debit';
 
 export interface MerchantWalletTransaction {
   id: string;

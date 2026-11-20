@@ -1,7 +1,22 @@
 const merchantWalletService = require('../services/merchant-wallet.service');
+const bachsService = require('../services/bachs.service');
 const { successResponse } = require('../utils/responseFormatter');
 
 class MerchantWalletController {
+  async fundWalletCheckout(req, res, next) {
+    try {
+      const origin = req.get('origin') || req.get('referer');
+      const session = await bachsService.createMerchantWalletFundingCheckout({
+        merchantId: req.user.id,
+        amount: req.validatedData.amount,
+        origin,
+      });
+      successResponse(res, session, 'Merchant wallet checkout session created successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getWalletInfo(req, res, next) {
     try {
       const walletInfo = await merchantWalletService.getWalletInfo(req.user.id);

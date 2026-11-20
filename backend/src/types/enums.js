@@ -51,6 +51,7 @@ const WALLET_TRANSACTION_TYPE = {
 };
 
 const MERCHANT_WALLET_TRANSACTION_TYPE = {
+  DEPOSIT: 'deposit',
   INVESTMENT_CREDIT: 'investment_credit',
   WITHDRAWAL: 'withdrawal',
   DIVIDEND_DEBIT: 'dividend_debit',

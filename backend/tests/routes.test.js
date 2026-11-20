@@ -64,6 +64,15 @@ describe('API Route Integration / Endpoint Tests', () => {
     expect(res.body.errors).toBeDefined();
   });
 
+  it('POST /api/merchant-wallet/fund/checkout should require merchant authentication', async () => {
+    const res = await request(app)
+      .post('/api/merchant-wallet/fund/checkout')
+      .send({ amount: 5000 });
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/No token provided/i);
+  });
+
   describe('GET /api/investments/roi - Authentication & Authorization', () => {
     const secret = process.env.JWT_SECRET || 'test-jwt-secret-key-1234567890';
 

@@ -15,6 +15,16 @@ export const merchantWithdraw = (amount: number) =>
     { amount }
   );
 
+export const initiateMerchantWalletCheckout = (amount: number) =>
+  client.post<
+    ApiResponse<{
+      checkout_url: string;
+      checkout_id: string;
+      reference: string;
+      is_simulated: boolean;
+    }>
+  >('/merchant-wallet/fund/checkout', { amount });
+
 export const getMerchantTransactionHistory = (params?: { page?: number; limit?: number }) =>
   client.get<ApiResponse<{ transactions: MerchantWalletTransaction[]; pagination: Pagination }>>(
     '/merchant-wallet/transactions',

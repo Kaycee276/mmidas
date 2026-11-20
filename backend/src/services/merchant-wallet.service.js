@@ -4,9 +4,11 @@ const merchantModel = require('../models/merchant.model');
 const revenueModel = require('../models/revenue.model');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { MERCHANT_WALLET_TRANSACTION_TYPE, WALLET_TRANSACTION_STATUS } = require('../types/enums');
+const bachsService = require('./bachs.service');
 
 class MerchantWalletService {
   async getWalletInfo(merchantId) {
+    await bachsService.reconcilePendingMerchantDeposits(merchantId);
     const merchant = await merchantModel.findById(merchantId);
     if (!merchant) throw new NotFoundError('Merchant not found');
 

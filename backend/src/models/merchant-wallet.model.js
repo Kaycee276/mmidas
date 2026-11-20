@@ -51,6 +51,16 @@ class MerchantWalletModel {
     });
   }
 
+  async updateTransaction(id, updates) {
+    return prisma.merchantWalletTransaction.update({
+      where: { id },
+      data: {
+        ...updates,
+        updated_at: new Date(),
+      },
+    });
+  }
+
   async getTransactionHistory(merchantId, limit = 20, offset = 0) {
     const [data, count] = await Promise.all([
       prisma.merchantWalletTransaction.findMany({

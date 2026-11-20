@@ -15,6 +15,7 @@ import MerchantDashboard from './pages/merchant/MerchantDashboard';
 import MerchantProfile from './pages/merchant/MerchantProfile';
 import MerchantWallet from './pages/merchant/MerchantWallet';
 import MerchantWithdraw from './pages/merchant/MerchantWithdraw';
+import MerchantDeposit from './pages/merchant/MerchantDeposit';
 import KYCSubmission from './pages/merchant/KYCSubmission';
 import RevenueHistory from './pages/merchant/RevenueHistory';
 import RevenueReport from './pages/merchant/RevenueReport';
@@ -172,6 +173,14 @@ const App = () => (
           element={
             <ProtectedRoute role="merchant">
               <MerchantWallet />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/merchant/wallet/deposit"
+          element={
+            <ProtectedRoute role="merchant">
+              <MerchantDeposit />
             </ProtectedRoute>
           }
         />

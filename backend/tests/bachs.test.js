@@ -20,12 +20,32 @@ jest.mock('../src/config/prisma', () => {
       amount_str: '5000.00',
     },
   };
+  const mockMerchantTxn = {
+    id: 'merchant-txn-123',
+    merchant_id: 'test-merchant-id-123',
+    amount: 5000,
+    payment_reference: 'mdep_mock_123',
+    status: 'pending',
+    balance_before: 20000,
+    balance_after: 20000,
+    metadata: { provider: 'bachs', account_type: 'merchant' },
+  };
+  const mockMerchant = {
+    id: 'test-merchant-id-123',
+    email: 'merchant@example.com',
+    business_name: 'Demo Merchant',
+    wallet_balance: 20000,
+  };
 
   return {
     student: {
       findUnique: jest.fn().mockResolvedValue(mockStudent),
       findFirst: jest.fn().mockResolvedValue(mockStudent),
       update: jest.fn().mockResolvedValue({ ...mockStudent, wallet_balance: 55000 }),
+    },
+    merchant: {
+      findUnique: jest.fn().mockResolvedValue(mockMerchant),
+      update: jest.fn().mockResolvedValue({ ...mockMerchant, wallet_balance: 25000 }),
     },
     walletTransaction: {
       create: jest.fn().mockResolvedValue(mockTxn),
@@ -36,6 +56,17 @@ jest.mock('../src/config/prisma', () => {
         status: 'completed',
         balance_after: 55000,
       }),
+    },
+    merchantWalletTransaction: {
+      create: jest.fn().mockResolvedValue(mockMerchantTxn),
+      findFirst: jest.fn().mockResolvedValue(mockMerchantTxn),
+      findUnique: jest.fn().mockResolvedValue(mockMerchantTxn),
+      update: jest.fn().mockResolvedValue({
+        ...mockMerchantTxn,
+        status: 'completed',
+        balance_after: 25000,
+      }),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     $transaction: jest.fn(async (cb) =>
       cb({
@@ -50,6 +81,18 @@ jest.mock('../src/config/prisma', () => {
         student: {
           findUnique: jest.fn().mockResolvedValue(mockStudent),
           update: jest.fn().mockResolvedValue({ ...mockStudent, wallet_balance: 55000 }),
+        },
+        merchantWalletTransaction: {
+          findUnique: jest.fn().mockResolvedValue(mockMerchantTxn),
+          update: jest.fn().mockResolvedValue({
+            ...mockMerchantTxn,
+            status: 'completed',
+            balance_after: 25000,
+          }),
+        },
+        merchant: {
+          findUnique: jest.fn().mockResolvedValue(mockMerchant),
+          update: jest.fn().mockResolvedValue({ ...mockMerchant, wallet_balance: 25000 }),
         },
       })
     ),
@@ -98,6 +141,39 @@ describe('Bachs Payment Integration Unit Tests', () => {
         amount: 50,
       })
     ).rejects.toThrow('Minimum deposit amount is ₦100');
+  });
+
+  it('creates a pending merchant wallet checkout', async () => {
+    const checkout = await bachsService.createMerchantWalletFundingCheckout({
+      merchantId: 'test-merchant-id-123',
+      amount: 5000,
+      origin: 'http://localhost:5173',
+    });
+
+    expect(checkout.reference).toMatch(/^mdep_/);
+    expect(checkout.is_simulated).toBe(true);
+    expect(prisma.merchantWalletTransaction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          merchant_id: 'test-merchant-id-123',
+          type: 'deposit',
+          amount: 5000,
+          status: WALLET_TRANSACTION_STATUS.PENDING,
+          metadata: expect.objectContaining({ account_type: 'merchant', currency: 'NGN' }),
+        }),
+      })
+    );
+  });
+
+  it('credits a merchant wallet once when its checkout completes', async () => {
+    const result = await bachsService.handleWebhookEvent({
+      id: 'evt_merchant_123',
+      type: 'checkout.completed',
+      data: { reference: 'mdep_mock_123', checkout_id: 'chk_mock_merchant' },
+    });
+
+    expect(result.handled).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 
   it('fulfils checkout.completed webhook atomically and credits student balance', async () => {

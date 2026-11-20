@@ -2,11 +2,17 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { bachsClient } = require('../config/bachs');
 const studentModel = require('../models/student.model');
+const merchantModel = require('../models/merchant.model');
 const walletModel = require('../models/wallet.model');
+const merchantWalletModel = require('../models/merchant-wallet.model');
 const { NotFoundError, ValidationError } = require('../utils/errors');
-const { WALLET_TRANSACTION_TYPE, WALLET_TRANSACTION_STATUS } = require('../types/enums');
+const {
+  WALLET_TRANSACTION_TYPE,
+  MERCHANT_WALLET_TRANSACTION_TYPE,
+  WALLET_TRANSACTION_STATUS,
+} = require('../types/enums');
 const logger = require('../utils/logger');
-const { emitPaymentNotification } = require('../config/socket');
+const { emitPaymentNotification, emitDashboardUpdate } = require('../config/socket');
 
 class BachsService {
   /**
@@ -51,7 +57,77 @@ class BachsService {
       },
     });
 
-    // Check if client is initialized with a live/sandbox API key
+    return this.createCheckoutSession({
+      transaction,
+      transactionModel: walletModel,
+      reference,
+      amountStr,
+      idempotencyKey,
+      origin,
+      email: student.email,
+      customerName: student.full_name,
+      redirectPath: '/student/wallet',
+      metadata: { student_id: studentId, deposit_id: reference },
+    });
+  }
+
+  async createMerchantWalletFundingCheckout({ merchantId, amount, origin }) {
+    const merchant = await merchantModel.findById(merchantId);
+    if (!merchant) throw new NotFoundError('Merchant not found');
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < 100) {
+      throw new ValidationError('Minimum deposit amount is ₦100');
+    }
+
+    const amountStr = numAmount.toFixed(2);
+    const reference = `mdep_${crypto.randomUUID()}`;
+    const idempotencyKey = `checkout-${reference}`;
+    const balanceBefore = Number(merchant.wallet_balance) || 0;
+    const transaction = await merchantWalletModel.createTransaction({
+      merchant_id: merchantId,
+      type: MERCHANT_WALLET_TRANSACTION_TYPE.DEPOSIT,
+      amount: numAmount,
+      balance_before: balanceBefore,
+      balance_after: balanceBefore,
+      payment_reference: reference,
+      status: WALLET_TRANSACTION_STATUS.PENDING,
+      description: `Wallet deposit of ₦${numAmount.toLocaleString()}`,
+      metadata: {
+        provider: 'bachs',
+        account_type: 'merchant',
+        idempotency_key: idempotencyKey,
+        currency: 'NGN',
+        amount_str: amountStr,
+      },
+    });
+
+    return this.createCheckoutSession({
+      transaction,
+      transactionModel: merchantWalletModel,
+      reference,
+      amountStr,
+      idempotencyKey,
+      origin,
+      email: merchant.email,
+      customerName: merchant.business_name,
+      redirectPath: '/merchant/wallet/deposit',
+      metadata: { merchant_id: merchantId, account_type: 'merchant', deposit_id: reference },
+    });
+  }
+
+  async createCheckoutSession({
+    transaction,
+    transactionModel,
+    reference,
+    amountStr,
+    idempotencyKey,
+    origin,
+    email,
+    customerName,
+    redirectPath,
+    metadata,
+  }) {
     if (bachsClient) {
       try {
         const frontendUrl = process.env.FRONTEND_URL || origin || '';
@@ -62,8 +138,8 @@ class BachsService {
         const redirectOptions = isLocal
           ? {}
           : {
-              success_url: `${frontendUrl}/student/wallet?status=success&reference=${reference}`,
-              cancel_url: `${frontendUrl}/student/wallet?status=cancelled&reference=${reference}`,
+              success_url: `${frontendUrl}${redirectPath}?status=success&reference=${reference}`,
+              cancel_url: `${frontendUrl}${redirectPath}?status=cancelled&reference=${reference}`,
             };
 
         const session = await bachsClient.checkoutSessions.create(
@@ -74,20 +150,17 @@ class BachsService {
             },
             reference,
             customer: {
-              email: student.email,
-              name: student.full_name,
+              email,
+              name: customerName,
             },
-            metadata: {
-              student_id: studentId,
-              deposit_id: reference,
-            },
+            metadata,
             ...redirectOptions,
           },
           { idempotencyKey }
         );
 
         // Update transaction with session details
-        await walletModel.updateTransaction(transaction.id, {
+        await transactionModel.updateTransaction(transaction.id, {
           metadata: {
             ...transaction.metadata,
             checkout_id: session.checkout_id,
@@ -98,7 +171,7 @@ class BachsService {
         logger.info('Bachs checkout session created', {
           reference,
           checkout_id: session.checkout_id,
-          student_id: studentId,
+          account: metadata.student_id ? 'student' : 'merchant',
           amount: amountStr,
         });
 
@@ -120,9 +193,9 @@ class BachsService {
     // Fallback: If no BACHS_API_KEY is supplied yet (or in offline development mode),
     // provide a simulated sandbox checkout URL so local development & defense tests work seamlessly.
     const mockCheckoutId = `chk_mock_${crypto.randomUUID().replace(/-/g, '')}`;
-    const mockCheckoutUrl = `/student/wallet/fund?mock_checkout=true&checkout_id=${mockCheckoutId}&reference=${reference}&amount=${amountStr}`;
+    const mockCheckoutUrl = `${metadata.merchant_id ? '/merchant/wallet/deposit' : '/student/wallet/fund'}?mock_checkout=true&checkout_id=${mockCheckoutId}&reference=${reference}&amount=${amountStr}`;
 
-    await walletModel.updateTransaction(transaction.id, {
+    await transactionModel.updateTransaction(transaction.id, {
       metadata: {
         ...transaction.metadata,
         checkout_id: mockCheckoutId,
@@ -163,18 +236,26 @@ class BachsService {
       return { handled: false, reason: 'missing_identifiers' };
     }
 
-    // Find the pending transaction
-    const transaction = await prisma.walletTransaction.findFirst({
+    let isMerchantDeposit = reference?.startsWith('mdep_') || false;
+    let transactionModel = isMerchantDeposit
+      ? prisma.merchantWalletTransaction
+      : prisma.walletTransaction;
+    let transaction = await transactionModel.findFirst({
       where: {
         OR: [
           ...(reference ? [{ payment_reference: reference }] : []),
           ...(checkoutId ? [{ metadata: { path: ['checkout_id'], equals: checkoutId } }] : []),
         ],
       },
-      include: {
-        student: true,
-      },
     });
+
+    if (!transaction && !reference) {
+      isMerchantDeposit = true;
+      transactionModel = prisma.merchantWalletTransaction;
+      transaction = await transactionModel.findFirst({
+        where: { metadata: { path: ['checkout_id'], equals: checkoutId } },
+      });
+    }
 
     if (!transaction) {
       logger.warn('No transaction found matching webhook identifiers', {
@@ -220,10 +301,13 @@ class BachsService {
       }
     }
 
-    // Atomically credit student balance and update transaction
+    // Atomically credit the correct wallet and mark its deposit complete.
     const updated = await prisma.$transaction(async (tx) => {
       // Re-fetch inside transaction for race condition safety
-      const currentTx = await tx.walletTransaction.findUnique({
+      const txModel = isMerchantDeposit ? tx.merchantWalletTransaction : tx.walletTransaction;
+      const accountModel = isMerchantDeposit ? tx.merchant : tx.student;
+      const accountId = isMerchantDeposit ? transaction.merchant_id : transaction.student_id;
+      const currentTx = await txModel.findUnique({
         where: { id: transaction.id },
       });
 
@@ -231,17 +315,17 @@ class BachsService {
         return currentTx;
       }
 
-      const student = await tx.student.findUnique({
-        where: { id: transaction.student_id },
+      const account = await accountModel.findUnique({
+        where: { id: accountId },
         select: { wallet_balance: true },
       });
 
-      const currentBalance = parseFloat(student.wallet_balance) || 0;
+      const currentBalance = parseFloat(account.wallet_balance) || 0;
       const creditAmount = parseFloat(transaction.amount);
       const newBalance = currentBalance + creditAmount;
 
-      await tx.student.update({
-        where: { id: transaction.student_id },
+      await accountModel.update({
+        where: { id: accountId },
         data: {
           wallet_balance: {
             increment: creditAmount,
@@ -256,7 +340,7 @@ class BachsService {
         ? [...existingMeta.events_processed, eventId]
         : [eventId];
 
-      return tx.walletTransaction.update({
+      return txModel.update({
         where: { id: transaction.id },
         data: {
           status: WALLET_TRANSACTION_STATUS.COMPLETED,
@@ -275,17 +359,21 @@ class BachsService {
 
     logger.info('Bachs payment fulfilled successfully', {
       reference: transaction.payment_reference,
-      student_id: transaction.student_id,
+      account_id: isMerchantDeposit ? transaction.merchant_id : transaction.student_id,
       amount: transaction.amount,
       balance_after: updated.balance_after,
       eventId,
     });
 
-    emitPaymentNotification(transaction.student_id, {
-      amount: transaction.amount,
-      balance: updated.balance_after,
-      transactionId: updated.id,
-    });
+    if (isMerchantDeposit) {
+      emitDashboardUpdate();
+    } else {
+      emitPaymentNotification(transaction.student_id, {
+        amount: transaction.amount,
+        balance: updated.balance_after,
+        transactionId: updated.id,
+      });
+    }
 
     return {
       handled: true,
@@ -300,7 +388,11 @@ class BachsService {
    * If pending and Bachs client is active, actively queries Bachs API and auto-reconciles.
    */
   async getCheckoutStatus(referenceOrCheckoutId) {
-    let transaction = await prisma.walletTransaction.findFirst({
+    const isMerchantDeposit = referenceOrCheckoutId.startsWith('mdep_');
+    const transactionModel = isMerchantDeposit
+      ? prisma.merchantWalletTransaction
+      : prisma.walletTransaction;
+    let transaction = await transactionModel.findFirst({
       where: {
         OR: [
           { payment_reference: referenceOrCheckoutId },
@@ -344,7 +436,7 @@ class BachsService {
             });
 
             // Re-fetch updated transaction
-            transaction = await prisma.walletTransaction.findUnique({
+            transaction = await transactionModel.findUnique({
               where: { id: transaction.id },
             });
           }
@@ -415,6 +507,50 @@ class BachsService {
       }
     } catch (err) {
       logger.warn('Error during student pending deposits reconciliation', {
+        error: err.message,
+      });
+    }
+  }
+
+  async reconcilePendingMerchantDeposits(merchantId) {
+    if (!bachsClient) return;
+
+    try {
+      const pendingDeposits = await prisma.merchantWalletTransaction.findMany({
+        where: {
+          merchant_id: merchantId,
+          type: MERCHANT_WALLET_TRANSACTION_TYPE.DEPOSIT,
+          status: WALLET_TRANSACTION_STATUS.PENDING,
+        },
+        take: 5,
+      });
+
+      for (const txn of pendingDeposits) {
+        const checkoutId = txn.metadata?.checkout_id;
+        if (checkoutId && !checkoutId.startsWith('chk_mock_')) {
+          try {
+            const checkout = await bachsClient.checkoutSessions.get(String(checkoutId));
+            if (checkout.status === 'completed' && checkout.payment_status === 'succeeded') {
+              await this.handleWebhookEvent({
+                id: `sync_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                type: 'checkout.completed',
+                created_at: new Date().toISOString(),
+                data: {
+                  reference: txn.payment_reference,
+                  checkout_id: checkoutId,
+                  amount: checkout.amount,
+                  currency: checkout.currency,
+                  status: 'completed',
+                },
+              });
+            }
+          } catch {
+            // Ignore an individual checkout error and continue reconciling others.
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn('Error during merchant pending deposits reconciliation', {
         error: err.message,
       });
     }
