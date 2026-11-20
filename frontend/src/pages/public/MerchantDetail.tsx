@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Building2,
   Calendar,
+  Navigation,
+  ExternalLink,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getMerchant } from '../../api/public';
@@ -22,6 +24,7 @@ import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../stores/useAuthStore';
+import { isValidCoordinate } from '../../lib/campusLocations';
 
 const proximityLabels: Record<string, string> = {
   on_campus: 'Directly On Campus',
@@ -159,17 +162,43 @@ const MerchantDetail = () => {
           <div className="flex items-start gap-2.5 text-(--text-secondary)">
             <Building2 className="h-4 w-4 text-(--text-tertiary) shrink-0 mt-0.5" />
             <div>
-              <span className="font-medium text-(--text)">Storefront Address</span>
-              <p className="mt-0.5 text-(--text-tertiary)">{merchant.business_address}</p>
+              <span className="font-medium text-(--text)">Storefront Address & Campus Location</span>
+              <p className="mt-0.5 text-(--text-tertiary)">
+                {merchant.location_name
+                  ? `${merchant.location_name} (${merchant.business_address})`
+                  : merchant.business_address}
+              </p>
+              {merchant.is_location_verified && (
+                <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-(--success) font-medium">
+                  <ShieldCheck className="h-3 w-3" /> Campus Location Verified by Administration
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 text-(--text-secondary)">
-            <Phone className="h-4 w-4 text-(--text-tertiary) shrink-0 mt-0.5" />
-            <div>
-              <span className="font-medium text-(--text)">Direct Inquiries</span>
-              <p className="mt-0.5 text-(--text-tertiary)">{merchant.business_phone}</p>
+          <div className="flex items-start justify-between gap-2.5 text-(--text-secondary)">
+            <div className="flex items-start gap-2.5">
+              <Phone className="h-4 w-4 text-(--text-tertiary) shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-(--text)">Direct Inquiries</span>
+                <p className="mt-0.5 text-(--text-tertiary)">{merchant.business_phone}</p>
+              </div>
             </div>
+
+            {isValidCoordinate(merchant.latitude, merchant.longitude) && (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${merchant.latitude},${merchant.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+              >
+                <Button variant="secondary" size="sm" className="gap-1.5 text-xs">
+                  <Navigation className="h-3.5 w-3.5 text-(--accent-primary)" />
+                  Directions
+                  <ExternalLink className="h-3 w-3 opacity-60" />
+                </Button>
+              </a>
+            )}
           </div>
         </div>
       </Card>
