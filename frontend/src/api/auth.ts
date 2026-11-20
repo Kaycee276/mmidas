@@ -17,8 +17,11 @@ export const merchantLogin = (data: LoginData) =>
 
 export const getMerchantProfile = () => client.get<ApiResponse<{ merchant: Merchant }>>('/auth/me');
 
-export const updateMerchantProfile = (data: Partial<MerchantRegisterData>) =>
+export const updateMerchantProfile = (data: Partial<MerchantRegisterData> & { latitude?: number | null; longitude?: number | null; location_name?: string | null }) =>
   client.patch<ApiResponse<{ merchant: Merchant }>>('/auth/profile', data);
+
+export const updateMerchantLocation = (data: { latitude: number; longitude: number; location_name?: string | null }) =>
+  client.patch<ApiResponse<{ merchant: Merchant }>>('/auth/location', data);
 
 // Student auth
 export const studentRegister = (data: StudentRegisterData) =>

@@ -18,6 +18,10 @@ export interface Merchant {
   terms_accepted: boolean;
   terms_accepted_at?: string;
   wallet_balance?: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_name?: string | null;
+  is_location_verified?: boolean | null;
 }
 
 export interface Student {
