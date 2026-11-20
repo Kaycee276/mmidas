@@ -80,6 +80,10 @@ async function main() {
       owner_email: 'emeka.okafor@gmail.com',
       proximity_to_campus: 'on_campus',
       wallet_balance: 185000,
+      latitude: 6.8665,
+      longitude: 7.4058,
+      location_name: 'Franco Refectory Complex',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-789012',
         taxId: 'TIN-4890123-001',
@@ -101,6 +105,10 @@ async function main() {
       owner_email: 'chioma.eze@gmail.com',
       proximity_to_campus: 'on_campus',
       wallet_balance: 240000,
+      latitude: 6.8695,
+      longitude: 7.4082,
+      location_name: 'Nnamdi Azikiwe Library Arcade',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-654321',
         taxId: 'TIN-3456789-002',
@@ -122,6 +130,10 @@ async function main() {
       owner_email: 'chidi.ani@gmail.com',
       proximity_to_campus: 'within_1km',
       wallet_balance: 150000,
+      latitude: 6.8745,
+      longitude: 7.3995,
+      location_name: 'Odenigwe Road (Behind Flat Gate)',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-998877',
         taxId: 'TIN-9876543-003',
@@ -143,6 +155,10 @@ async function main() {
       owner_email: 'tochukwu.ugwu@gmail.com',
       proximity_to_campus: 'on_campus',
       wallet_balance: 210000,
+      latitude: 6.8678,
+      longitude: 7.4072,
+      location_name: 'SUB Complex & Student Arcade',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-554433',
         taxId: 'TIN-5544332-004',
@@ -164,6 +180,10 @@ async function main() {
       owner_email: 'daniel.adebayo@gmail.com',
       proximity_to_campus: 'on_campus',
       wallet_balance: 185000,
+      latitude: 6.8665,
+      longitude: 7.4058,
+      location_name: 'Franco Refectory Complex',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-789011',
         taxId: 'TIN-4890123-005',
@@ -185,6 +205,10 @@ async function main() {
       owner_email: 'chioma.okonjo@gmail.com',
       proximity_to_campus: 'on_campus',
       wallet_balance: 240000,
+      latitude: 6.8695,
+      longitude: 7.4082,
+      location_name: 'Nnamdi Azikiwe Library Arcade',
+      is_location_verified: true,
       kyc: {
         registrationNumber: 'RC-UNN-654320',
         taxId: 'TIN-3456789-006',
@@ -238,6 +262,10 @@ async function main() {
         is_verified: true,
         terms_accepted: true,
         wallet_balance: m.wallet_balance,
+        latitude: m.latitude || null,
+        longitude: m.longitude || null,
+        location_name: m.location_name || null,
+        is_location_verified: m.is_location_verified || false,
       },
       create: {
         email: m.email.toLowerCase(),
@@ -257,6 +285,10 @@ async function main() {
         terms_accepted: true,
         terms_accepted_at: new Date(),
         wallet_balance: m.wallet_balance,
+        latitude: m.latitude || null,
+        longitude: m.longitude || null,
+        location_name: m.location_name || null,
+        is_location_verified: m.is_location_verified || false,
       },
     });
 
