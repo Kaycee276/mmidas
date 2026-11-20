@@ -27,13 +27,15 @@ Midas is a campus micro-investment and merchant KYC platform connecting universi
 ## Key Features
 
 ### For Students (Investors)
-- **Merchant Directory**: Browse campus-verified merchants with real-time category, proximity, and keyword search filters.
+- **Merchant Directory & Campus Map**: Browse campus-verified merchants in both List View and an interactive Google Maps View centered on the University of Nigeria, Nsukka (UNN).
+- **Nearby Store Discovery**: Opt-in customer geolocation calculating real-time walking distances (meters/kilometers) using the Haversine formula and sorting nearby stores.
 - **Micro-Investments**: Invest in campus businesses with amounts from $10 up to $1,000,000.
 - **Portfolio Tracking**: Real-time aggregated summaries, current value, returns, and transaction history.
 - **Wallet System**: Deposit, withdraw, and track cash balance alongside investment holdings.
 
 ### For Merchants (Business Owners)
-- **Business Profile**: Detailed registration including proximity to campus, business category, and contact details.
+- **Business Profile & Physical Location**: Detailed registration including proximity to campus, business category, contact details, and precise physical coordinates (`latitude`, `longitude`, `location_name`).
+- **Interactive Location Pinning**: Vendors can drop and adjust pins on the campus map or select from known UNN commercial landmarks (SUB, Franco Complex, Library, Odim Gate).
 - **KYC Verification**: Single-step document upload (ID, business registration, proof of address, business photos).
 - **Investor & Revenue Management**: View investor support, track capital raised, and submit periodic revenue reports.
 - **Merchant Wallet**: Secure withdrawals and investment credit management.
@@ -199,6 +201,51 @@ Run these commands from the root directory:
 
 ---
 
+## Google Maps Configuration & Campus Marketplace Discovery
+
+The campus marketplace discovery system uses the **Google Maps JavaScript API** to provide an interactive map experience for exploring campus stores at the University of Nigeria, Nsukka (UNN).
+
+### 1. Environment Variable Setup
+
+In the frontend environment file (`frontend/.env`):
+
+```bash
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+```
+
+*(Note: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is also supported as a fallback).*
+
+### 2. Required Google Cloud APIs
+
+Ensure only the following Google Cloud API is enabled for your project:
+- **Maps JavaScript API**
+
+*(Paid server-side APIs like Geocoding or Places Web Service are NOT required, keeping Google Cloud operational costs at zero).*
+
+### 3. API Key Restrictions & Security Best Practices
+
+1. **Application Restrictions**: Set HTTP referrer restrictions in Google Cloud Console to restrict API key usage to authorized domains:
+   - `http://localhost:5173/*` (Local development)
+   - `https://your-domain.vercel.app/*` (Production deployment)
+2. **API Restrictions**: Restrict the key specifically to `Maps JavaScript API`.
+3. **No Private Coordinates Leakage**: Map markers and endpoints only serve public business coordinates for approved/active merchants. Customer device GPS coordinates are calculated strictly client-side via the browser Geolocation API and are never stored on the server.
+
+### 4. Vendor Store Location Registration
+
+1. Log in to your merchant account and navigate to **Store Settings** (`/merchant/profile`).
+2. Under **Physical Campus Location & GPS Pin**, search for or click your exact store position on the interactive UNN map, or click one of the preset UNN commercial zones (e.g., *SUB*, *Franco Complex*, *Zik Library*, *Odim Gate*).
+3. Optionally click **Pin My Current Device Location** when physically present at your shop.
+4. Enter a recognizable location landmark (e.g. `Shop 4, Franco Refectory Complex`).
+5. Click **Save Changes**. Changes are updated immediately via `PATCH /api/auth/location` and will be subject to compliance verification.
+
+### 5. Campus Geolocation Discovery
+
+- Students can explore the campus map without enabling browser location permissions.
+- When **Enable Nearby Discovery** is clicked, explicit browser permission is prompted. If granted, real-time walking distances (in meters or kilometers) are computed on the client via the Haversine formula, and students can sort stores by proximity.
+- Fallback: When permission is denied, the map gracefully defaults to the UNN campus center (6.8687° N, 7.4065° E) without error.
+
+---
+
 ## Testing
 
 The repository includes a comprehensive unit testing suite with **57 passing tests**:
@@ -259,6 +306,7 @@ All backend endpoints are prefixed with `/api`.
 - `POST /api/auth/login` — Login merchant
 - `GET /api/auth/me` — Current merchant profile *(Merchant)*
 - `PATCH /api/auth/profile` — Update merchant profile *(Merchant)*
+- `PATCH /api/auth/location` — Update physical store location coordinates and landmark *(Merchant)*
 - `POST /api/students/register` — Register student
 - `POST /api/students/login` — Login student
 - `GET /api/students/me` — Current student profile *(Student)*
