@@ -45,6 +45,20 @@ class AuthController {
     }
   }
 
+  async updateLocation(req, res, next) {
+    try {
+      const { latitude, longitude, location_name } = req.validatedData;
+      const merchant = await merchantService.updateLocation(req.user.id, {
+        latitude,
+        longitude,
+        location_name,
+      });
+      successResponse(res, { merchant }, 'Store location updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async verifyEmail(req, res, next) {
     try {
       const { token } = req.query;

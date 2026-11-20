@@ -89,13 +89,43 @@ class MerchantService {
     return merchantWithoutPassword;
   }
 
-  async updateProfile(merchantId, updates) {
+  async updateProfile(reqUserId, updates) {
+    const merchant = await merchantModel.findById(reqUserId);
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found');
+    }
+
+    // Protect administrative verification status
+    const sanitizedUpdates = { ...updates };
+    delete sanitizedUpdates.is_location_verified;
+    delete sanitizedUpdates.is_verified;
+    delete sanitizedUpdates.account_status;
+    delete sanitizedUpdates.kyc_status;
+
+    // If coordinates are modified via general profile, reset is_location_verified to false
+    if ('latitude' in sanitizedUpdates || 'longitude' in sanitizedUpdates) {
+      sanitizedUpdates.is_location_verified = false;
+    }
+
+    const updatedMerchant = await merchantModel.update(reqUserId, sanitizedUpdates);
+
+    const { password_hash, ...merchantWithoutPassword } = updatedMerchant;
+    return merchantWithoutPassword;
+  }
+
+  async updateLocation(merchantId, { latitude, longitude, location_name }) {
     const merchant = await merchantModel.findById(merchantId);
     if (!merchant) {
       throw new NotFoundError('Merchant not found');
     }
 
-    const updatedMerchant = await merchantModel.update(merchantId, updates);
+    // Vendor submitted coordinates require admin verification
+    const updatedMerchant = await merchantModel.update(merchantId, {
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      location_name: location_name || null,
+      is_location_verified: false,
+    });
 
     const { password_hash, ...merchantWithoutPassword } = updatedMerchant;
     return merchantWithoutPassword;

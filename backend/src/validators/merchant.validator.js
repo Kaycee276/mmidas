@@ -64,10 +64,29 @@ const merchantUpdateSchema = Joi.object({
   proximity_to_campus: Joi.string()
     .valid(...PROXIMITY_OPTIONS)
     .optional(),
-}).min(1);
+  latitude: Joi.number().min(-90).max(90).allow(null).optional(),
+  longitude: Joi.number().min(-180).max(180).allow(null).optional(),
+  location_name: Joi.string().max(255).allow(null, '').optional(),
+})
+  .min(1)
+  .custom((value, helpers) => {
+    const hasLat = value.latitude !== undefined && value.latitude !== null;
+    const hasLng = value.longitude !== undefined && value.longitude !== null;
+    if (hasLat !== hasLng) {
+      return helpers.message('Both latitude and longitude must be provided together');
+    }
+    return value;
+  });
+
+const updateLocationSchema = Joi.object({
+  latitude: Joi.number().min(-90).max(90).required(),
+  longitude: Joi.number().min(-180).max(180).required(),
+  location_name: Joi.string().max(255).allow('', null).optional(),
+});
 
 module.exports = {
   merchantRegistrationSchema,
   merchantLoginSchema,
   merchantUpdateSchema,
+  updateLocationSchema,
 };

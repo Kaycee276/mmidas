@@ -34,6 +34,10 @@ model Merchant {
   is_verified          Boolean?  @default(false)
   wallet_balance       Decimal   @default(0) @db.Decimal
   stellar_address      String?
+  latitude             Float?
+  longitude            Float?
+  location_name        String?   @db.VarChar
+  is_location_verified Boolean?  @default(false)
 
   kyc                          MerchantKyc?
   kyc_submission_history       KycSubmissionHistory[]

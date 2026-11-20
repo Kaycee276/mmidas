@@ -10,6 +10,7 @@ import Textarea from '../../components/ui/Textarea';
 import Select from '../../components/ui/Select';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import VendorLocationSelector from '../../components/map/VendorLocationSelector';
 
 const businessTypeOptions = [
   'restaurant',
@@ -48,6 +49,9 @@ const MerchantProfile = () => {
     owner_phone: merchant.owner_phone,
     owner_email: merchant.owner_email || '',
     proximity_to_campus: merchant.proximity_to_campus,
+    latitude: merchant.latitude ?? null,
+    longitude: merchant.longitude ?? null,
+    location_name: merchant.location_name ?? '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -164,6 +168,23 @@ const MerchantProfile = () => {
             value={form.business_phone}
             onChange={(e) => update('business_phone', e.target.value)}
             required
+          />
+        </Card>
+
+        {/* Physical Store Location Picker */}
+        <Card className="p-6">
+          <VendorLocationSelector
+            initialLatitude={form.latitude}
+            initialLongitude={form.longitude}
+            initialLocationName={form.location_name}
+            onLocationChange={({ latitude, longitude, locationName }) => {
+              setForm((p) => ({
+                ...p,
+                latitude,
+                longitude,
+                location_name: locationName,
+              }));
+            }}
           />
         </Card>
 
